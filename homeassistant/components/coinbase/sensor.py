@@ -3,6 +3,7 @@ import logging
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import ATTR_ATTRIBUTION
+from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 
 from .const import (
@@ -107,7 +108,7 @@ class AccountSensor(SensorEntity):
                 break
         self._attr_device_info = DeviceInfo(
             configuration_url="https://www.coinbase.com/settings/api",
-            entry_type="service",
+            entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, self._coinbase_data.user_id)},
             manufacturer="Coinbase.com",
             name=f"Coinbase {self._coinbase_data.user_id[-4:]}",
@@ -179,7 +180,7 @@ class ExchangeRateSensor(SensorEntity):
         self._unit_of_measurement = exchange_base
         self._attr_device_info = DeviceInfo(
             configuration_url="https://www.coinbase.com/settings/api",
-            entry_type="service",
+            entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, self._coinbase_data.user_id)},
             manufacturer="Coinbase.com",
             name=f"Coinbase {self._coinbase_data.user_id[-4:]}",

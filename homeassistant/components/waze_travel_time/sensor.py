@@ -22,6 +22,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import Config, CoreState, HomeAssistant
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import DiscoveryInfoType
 
@@ -166,7 +167,7 @@ class WazeTravelTime(SensorEntity):
     _attr_device_info = {
         "name": "Waze",
         "identifiers": {(DOMAIN, DOMAIN)},
-        "entry_type": "service",
+        "entry_type": DeviceEntryType.SERVICE,
     }
 
     def __init__(self, unique_id, name, origin, destination, waze_data):

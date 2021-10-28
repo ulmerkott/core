@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from enum import Enum
 import logging
 import time
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
@@ -49,6 +50,12 @@ class _DeviceIndex(NamedTuple):
     connections: dict[tuple[str, str], str]
 
 
+class DeviceEntryType(Enum):
+    """Device entry type."""
+
+    SERVICE = "service"
+
+
 @attr.s(slots=True, frozen=True)
 class DeviceEntry:
     """Device Registry Entry."""
@@ -68,7 +75,7 @@ class DeviceEntry:
             )
         ),
     )
-    entry_type: str | None = attr.ib(default=None)
+    entry_type: DeviceEntryType | None = attr.ib(default=None)
     id: str = attr.ib(factory=uuid_util.random_uuid_hex)
     identifiers: set[tuple[str, str]] = attr.ib(converter=set, factory=set)
     manufacturer: str | None = attr.ib(default=None)
@@ -252,7 +259,7 @@ class DeviceRegistry:
         default_name: str | None | UndefinedType = UNDEFINED,
         # To disable a device if it gets created
         disabled_by: str | None | UndefinedType = UNDEFINED,
-        entry_type: str | None | UndefinedType = UNDEFINED,
+        entry_type: DeviceEntryType | None | UndefinedType = UNDEFINED,
         identifiers: set[tuple[str, str]] | None = None,
         manufacturer: str | None | UndefinedType = UNDEFINED,
         model: str | None | UndefinedType = UNDEFINED,
@@ -368,7 +375,7 @@ class DeviceRegistry:
         area_id: str | None | UndefinedType = UNDEFINED,
         configuration_url: str | None | UndefinedType = UNDEFINED,
         disabled_by: str | None | UndefinedType = UNDEFINED,
-        entry_type: str | None | UndefinedType = UNDEFINED,
+        entry_type: DeviceEntryType | None | UndefinedType = UNDEFINED,
         manufacturer: str | None | UndefinedType = UNDEFINED,
         merge_connections: set[tuple[str, str]] | UndefinedType = UNDEFINED,
         merge_identifiers: set[tuple[str, str]] | UndefinedType = UNDEFINED,
@@ -509,7 +516,9 @@ class DeviceRegistry:
                     name=device["name"],
                     sw_version=device["sw_version"],
                     # Introduced in 0.110
-                    entry_type=device.get("entry_type"),
+                    entry_type=DeviceEntryType(device["entry_type"])
+                    if device.get("entry_type")
+                    else None,
                     id=device["id"],
                     # Introduced in 0.79
                     # renamed in 0.95
@@ -559,7 +568,7 @@ class DeviceRegistry:
                 "model": entry.model,
                 "name": entry.name,
                 "sw_version": entry.sw_version,
-                "entry_type": entry.entry_type,
+                "entry_type": entry.entry_type.value if entry.entry_type else None,
                 "id": entry.id,
                 "via_device_id": entry.via_device_id,
                 "area_id": entry.area_id,

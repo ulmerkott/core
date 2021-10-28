@@ -30,6 +30,7 @@ from homeassistant.const import (
     TEMP_CELSIUS,
 )
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.distance import convert as convert_distance
@@ -250,7 +251,7 @@ class MetWeather(CoordinatorEntity, WeatherEntity):
         """Device info."""
         return DeviceInfo(
             default_name="Forecast",
-            entry_type="service",
+            entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN,)},
             manufacturer="Met.no",
             model="Forecast",

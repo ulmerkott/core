@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from yarl import URL
 
+from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PresenceData, XboxUpdateCoordinator
@@ -73,5 +74,5 @@ class XboxBaseSensorEntity(CoordinatorEntity):
             "name": "Xbox Live",
             "manufacturer": "Microsoft",
             "model": "Xbox Live",
-            "entry_type": "service",
+            "entry_type": DeviceEntryType.SERVICE,
         }
