@@ -68,7 +68,7 @@ async def test_list_devices(hass, client, registry):
             "model": "model",
             "name": None,
             "sw_version": None,
-            "entry_type": helpers_dr.DeviceEntryType.SERVICE,
+            "entry_type": helpers_dr.DeviceEntryType.SERVICE.value,
             "via_device_id": dev1,
             "area_id": None,
             "name_by_user": None,

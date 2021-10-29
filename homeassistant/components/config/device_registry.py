@@ -72,7 +72,7 @@ def _entry_dict(entry):
         "config_entries": list(entry.config_entries),
         "connections": list(entry.connections),
         "disabled_by": entry.disabled_by,
-        "entry_type": entry.entry_type,
+        "entry_type": entry.entry_type.value if entry.entry_type else None,
         "id": entry.id,
         "identifiers": list(entry.identifiers),
         "manufacturer": entry.manufacturer,
