@@ -2,16 +2,33 @@
 from __future__ import annotations
 
 from typing import Any
+from datetime import timedelta
 
 from solaredge import Solaredge
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.const import DEVICE_CLASS_BATTERY, DEVICE_CLASS_POWER, SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.event import async_track_sunrise, async_track_sunset
+from homeassistant.helpers.sun import get_astral_event_next, is_up
+from homeassistant.util.dt import utcnow
 
-from .const import CONF_SITE_ID, DATA_API_CLIENT, DOMAIN, SENSOR_TYPES
+from .const import (
+    CONF_SITE_ID,
+    DATA_API_CLIENT,
+    DETAILS_DAILY_UPDATE_LIMIT,
+    DOMAIN, SENSOR_TYPES,
+    ENERGY_DETAILS_DAILY_UPDATE_LIMIT,
+    INVENTORY_DAILY_UPDATE_LIMIT,
+    LIMIT_WHILE_DAYLIGHT_RATIO,
+    LOGGER,
+    OVERVIEW_DAILY_UPDATE_LIMIT,
+    POWER_FLOW_DAILY_UPDATE_LIMIT
+)
+
 from .coordinator import (
     SolarEdgeDataService,
     SolarEdgeDetailsDataService,
@@ -35,8 +52,13 @@ async def async_setup_entry(
     sensor_factory = SolarEdgeSensorFactory(
         hass, entry.title, entry.data[CONF_SITE_ID], api
     )
+
+    # Set initial update interval based on current daylight condition.
+    daylight = is_up(hass, utcnow())
+    duration = await sensor_factory.get_event_duration(SUN_EVENT_SUNSET if daylight else SUN_EVENT_SUNRISE)
     for service in sensor_factory.all_services:
         service.async_setup()
+        await service.recalculate_update_interval(duration, daylight)
         await service.coordinator.async_refresh()
 
     entities = []
@@ -56,14 +78,23 @@ class SolarEdgeSensorFactory:
         """Initialize the factory."""
         self.platform_name = platform_name
 
-        details = SolarEdgeDetailsDataService(hass, api, site_id)
-        overview = SolarEdgeOverviewDataService(hass, api, site_id)
-        inventory = SolarEdgeInventoryDataService(hass, api, site_id)
-        flow = SolarEdgePowerFlowDataService(hass, api, site_id)
-        energy = SolarEdgeEnergyDetailsService(hass, api, site_id)
+        details = SolarEdgeDetailsDataService(hass, api, site_id, DETAILS_DAILY_UPDATE_LIMIT)
+        overview = SolarEdgeOverviewDataService(hass, api, site_id,
+            OVERVIEW_DAILY_UPDATE_LIMIT, LIMIT_WHILE_DAYLIGHT_RATIO)
+        inventory = SolarEdgeInventoryDataService(hass, api, site_id,
+            INVENTORY_DAILY_UPDATE_LIMIT)
+        flow = SolarEdgePowerFlowDataService(hass, api, site_id,
+            POWER_FLOW_DAILY_UPDATE_LIMIT, LIMIT_WHILE_DAYLIGHT_RATIO)
+        energy = SolarEdgeEnergyDetailsService(hass, api, site_id,
+            ENERGY_DETAILS_DAILY_UPDATE_LIMIT, LIMIT_WHILE_DAYLIGHT_RATIO)
 
+        self.hass = hass
         self.all_services = (details, overview, inventory, flow, energy)
 
+        async_track_sunrise(hass, self.sunrise_callback)
+        test_offset_now_minus_one_minute=(utcnow()-timedelta(seconds=100))-get_astral_event_next(hass, SUN_EVENT_SUNSET)+timedelta(days=1)
+        LOGGER.warning(f"Sunset callback due: {get_astral_event_next(hass, SUN_EVENT_SUNSET, offset=test_offset_now_minus_one_minute)}")
+        async_track_sunset(hass, self.sunset_callback, offset=test_offset_now_minus_one_minute)
         self.services: dict[
             str,
             tuple[
@@ -106,6 +137,26 @@ class SolarEdgeSensorFactory:
         sensor_class, service = self.services[sensor_type.key]
 
         return sensor_class(self.platform_name, sensor_type, service)
+
+    async def get_event_duration(self, event) -> timedelta:
+        return get_astral_event_next(self.hass, event) - utcnow()
+
+    @callback
+    async def sunset_callback(self):
+        duration = await self.get_event_duration(SUN_EVENT_SUNSET)
+        await self.recalculate_update_intervals(duration, daylight=False)
+
+    @callback
+    async def sunrise_callback(self):
+        duration = await self.get_event_duration(SUN_EVENT_SUNRISE)
+        await self.recalculate_update_intervals(duration, daylight=True)
+
+    # Go through all services and refresh the update_interval based on current conditions
+    async def recalculate_update_intervals(self, duration: timedelta, daylight: bool):
+        for service in self.all_services:
+            await service.recalculate_update_interval(duration, daylight)
+            await service.coordinator.async_refresh()
+
 
 
 class SolarEdgeSensorEntity(CoordinatorEntity, SensorEntity):

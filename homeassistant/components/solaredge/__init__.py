@@ -19,6 +19,10 @@ PLATFORMS = [Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SolarEdge from a config entry."""
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_API_CLIENT: None}
+    hass.config_entries.async_setup_platforms(entry, PLATFORMS)
+
+    return True
     api = Solaredge(entry.data[CONF_API_KEY])
 
     try:

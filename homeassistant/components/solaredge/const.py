@@ -17,13 +17,24 @@ DATA_API_CLIENT = "api_client"
 CONF_SITE_ID = "site_id"
 DEFAULT_NAME = "SolarEdge"
 
+# Actual limit is 300, but give it some margin for reboots and details/inventory 12h updates 
+API_DAILY_REQUEST_LIMIT = 288
+
+# This is for the 3 api requests that we update most frequently. Distribute the daily limit evenly over these for now.
+OVERVIEW_DAILY_UPDATE_LIMIT = API_DAILY_REQUEST_LIMIT / 3
+POWER_FLOW_DAILY_UPDATE_LIMIT = API_DAILY_REQUEST_LIMIT / 3
+ENERGY_DETAILS_DAILY_UPDATE_LIMIT = API_DAILY_REQUEST_LIMIT / 3
+DETAILS_DAILY_UPDATE_LIMIT = 2
+INVENTORY_DAILY_UPDATE_LIMIT = 2
+
+# How much of the daily limit that is distributed during daylight vs dark.
+LIMIT_WHILE_DAYLIGHT_RATIO = 0.95
+
 OVERVIEW_UPDATE_DELAY = timedelta(minutes=15)
 DETAILS_UPDATE_DELAY = timedelta(hours=12)
 INVENTORY_UPDATE_DELAY = timedelta(hours=12)
 POWER_FLOW_UPDATE_DELAY = timedelta(minutes=15)
 ENERGY_DETAILS_DELAY = timedelta(minutes=15)
-
-SCAN_INTERVAL = timedelta(minutes=15)
 
 
 # Supported overview sensors
