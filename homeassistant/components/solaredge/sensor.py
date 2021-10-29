@@ -92,9 +92,8 @@ class SolarEdgeSensorFactory:
         self.all_services = (details, overview, inventory, flow, energy)
 
         async_track_sunrise(hass, self.sunrise_callback)
-        test_offset_now_minus_one_minute=(utcnow()-timedelta(seconds=100))-get_astral_event_next(hass, SUN_EVENT_SUNSET)+timedelta(days=1)
-        LOGGER.warning(f"Sunset callback due: {get_astral_event_next(hass, SUN_EVENT_SUNSET, offset=test_offset_now_minus_one_minute)}")
-        async_track_sunset(hass, self.sunset_callback, offset=test_offset_now_minus_one_minute)
+        async_track_sunset(hass, self.sunset_callback)
+        
         self.services: dict[
             str,
             tuple[
