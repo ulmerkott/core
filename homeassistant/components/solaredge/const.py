@@ -30,13 +30,6 @@ INVENTORY_DAILY_UPDATE_LIMIT = 2
 # How much of the daily limit that is distributed during daylight vs dark.
 LIMIT_WHILE_DAYLIGHT_RATIO = 0.95
 
-OVERVIEW_UPDATE_DELAY = timedelta(minutes=15)
-DETAILS_UPDATE_DELAY = timedelta(hours=12)
-INVENTORY_UPDATE_DELAY = timedelta(hours=12)
-POWER_FLOW_UPDATE_DELAY = timedelta(minutes=15)
-ENERGY_DETAILS_DELAY = timedelta(minutes=15)
-
-
 # Supported overview sensors
 SENSOR_TYPES = [
     SolarEdgeSensorEntityDescription(
