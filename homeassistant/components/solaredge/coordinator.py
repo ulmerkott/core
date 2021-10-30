@@ -38,9 +38,7 @@ class SolarEdgeDataService:
         self.daylight_update_limit_ratio = daylight_update_limit_ratio
 
         # Set default update limit. This will be modified dynamically based on daylight for if self.daylight_update_limit_percentage is not None.
-        self.current_update_interval = timedelta(
-            minutes=((24 * 60) / self.daily_update_limit)
-        )
+        self.current_update_interval = timedelta(days=1) / self.daily_update_limit
 
     @callback
     def async_setup(self) -> None:
@@ -66,17 +64,22 @@ class SolarEdgeDataService:
         if not self.daylight_update_limit_ratio:
             return
 
-        if daylight:
-            update_limit = round(
-                self.daylight_update_limit_ratio * self.daily_update_limit, ndigits=5
-            )
+        # If duration is zero or whole day, ignore the ratio and use daily limit instead.
+        if duration == timedelta(days=1) or duration == timedelta(0):
+            self.current_update_interval = timedelta(days=1) / self.daily_update_limit
         else:
-            update_limit = round(
-                (1 - self.daylight_update_limit_ratio) * self.daily_update_limit,
-                ndigits=5,
-            )
+            if daylight:
+                update_limit = round(
+                    self.daylight_update_limit_ratio * self.daily_update_limit,
+                    ndigits=5,
+                )
+            else:
+                update_limit = round(
+                    (1 - self.daylight_update_limit_ratio) * self.daily_update_limit,
+                    ndigits=5,
+                )
+            self.current_update_interval = duration / update_limit
 
-        self.current_update_interval = duration / update_limit
         self.coordinator.update_interval = self.current_update_interval
         LOGGER.debug(
             f"Recalculated update interval={self.current_update_interval} for daylight={daylight} duration={duration}"

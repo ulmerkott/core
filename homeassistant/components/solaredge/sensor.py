@@ -58,6 +58,7 @@ async def async_setup_entry(
     )
 
     # Set initial update interval based on current daylight condition.
+    # TODO: Get current day event duration instead of utcnow->next_event
     daylight = is_up(hass, utcnow())
     duration = await sensor_factory.get_event_duration(
         SUN_EVENT_SUNSET if daylight else SUN_EVENT_SUNRISE
