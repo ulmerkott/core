@@ -3,25 +3,28 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import date, datetime, timedelta
-from typing import Optional
+from unittest.mock import MagicMock
 
 from solaredge import Solaredge
 from stringcase import snakecase
-from unittest.mock import MagicMock
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import LOGGER
 
+
 class SolarEdgeDataService:
     """Get and update the latest data."""
 
-    def __init__(self, hass: HomeAssistant,
-            api: Solaredge,
-            site_id: str,
-            daily_update_limit: int,
-            daylight_update_limit_percentage: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: Solaredge,
+        site_id: str,
+        daily_update_limit: int,
+        daylight_update_limit_ratio: float | None = None,
+    ) -> None:
         """Initialize the data object."""
         self.api = MagicMock(return_value={})
         self.site_id = site_id
@@ -33,10 +36,12 @@ class SolarEdgeDataService:
         self.coordinator = None
 
         self.daily_update_limit = daily_update_limit
-        self.daylight_update_limit_percentage = daylight_update_limit_percentage
+        self.daylight_update_limit_ratio = daylight_update_limit_ratio
 
         # Set default update limit. This will be modified dynamically based on daylight for if self.daylight_update_limit_percentage is not None.
-        self.current_update_interval = timedelta(minutes=((24*60) / self.daily_update_limit))
+        self.current_update_interval = timedelta(
+            minutes=((24 * 60) / self.daily_update_limit)
+        )
 
     @callback
     def async_setup(self) -> None:
@@ -53,21 +58,30 @@ class SolarEdgeDataService:
     def update(self) -> None:
         """Update data in executor."""
 
-    async def recalculate_update_interval(self, duration: timedelta, daylight: bool) -> None:
-        """ Recalculate update_interval based on available daylight """
-        
-        # Only alter update_interval for services that uses daylight_update_limit_percentage 
-        if not self.daylight_update_limit_percentage:
-            return
-        
-        if daylight:
-            update_limit = self.daylight_update_limit_percentage * self.daily_update_limit 
-        else:
-            update_limit = (1 - self.daylight_update_limit_percentage) * self.daily_update_limit
+    async def recalculate_update_interval(
+        self, duration: timedelta, daylight: bool
+    ) -> None:
+        """Recalculate update_interval based on available daylight."""
 
-        self.current_update_interval = timedelta(seconds=duration.seconds / update_limit)
+        # Only alter update_interval for services that uses daylight_update_limit_percentage
+        if not self.daylight_update_limit_ratio:
+            return
+
+        if daylight:
+            update_limit = round(
+                self.daylight_update_limit_ratio * self.daily_update_limit, ndigits=5
+            )
+        else:
+            update_limit = round(
+                (1 - self.daylight_update_limit_ratio) * self.daily_update_limit,
+                ndigits=5,
+            )
+
+        self.current_update_interval = duration / update_limit
         self.coordinator.update_interval = self.current_update_interval
-        LOGGER.warning(f"{self.__class__} Recalculated update interval={self.current_update_interval.seconds/60.0} for daylight={daylight} duration={duration.seconds/60} ")
+        LOGGER.debug(
+            f"Recalculated update interval={self.current_update_interval} for daylight={daylight} duration={duration}"
+        )
 
     async def async_update_data(self) -> None:
         """Update data."""
@@ -79,10 +93,6 @@ class SolarEdgeOverviewDataService(SolarEdgeDataService):
 
     def update(self) -> None:
         """Update the data from the SolarEdge Monitoring API."""
-        LOGGER.warning(f"Overview update")
-
-        self.data = {}
-        return
         try:
             data = self.api.get_overview(self.site_id)
             overview = data["overview"]
@@ -106,21 +116,23 @@ class SolarEdgeOverviewDataService(SolarEdgeDataService):
 class SolarEdgeDetailsDataService(SolarEdgeDataService):
     """Get and update the latest details data."""
 
-    def __init__(self, hass: HomeAssistant, api: Solaredge, site_id: str,
-            daily_update_limit: int,
-            daylight_update_limit_percentage: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: Solaredge,
+        site_id: str,
+        daily_update_limit: int,
+        daylight_update_limit_percentage: float | None = None,
+    ) -> None:
         """Initialize the details data service."""
-        super().__init__(hass, api, site_id, daily_update_limit, daylight_update_limit_percentage)
+        super().__init__(
+            hass, api, site_id, daily_update_limit, daylight_update_limit_percentage
+        )
 
         self.data = None
 
     def update(self) -> None:
         """Update the data from the SolarEdge Monitoring API."""
-        LOGGER.warning("DetailsData update")
-
-        self.data = None
-        self.attributes = {}
-        return
         try:
             data = self.api.get_details(self.site_id)
             details = data["details"]
@@ -155,11 +167,6 @@ class SolarEdgeInventoryDataService(SolarEdgeDataService):
 
     def update(self) -> None:
         """Update the data from the SolarEdge Monitoring API."""
-        LOGGER.warning("Inventory update")
-
-        self.data = {}
-        self.attributes = {}
-        return
         try:
             data = self.api.get_inventory(self.site_id)
             inventory = data["Inventory"]
@@ -179,22 +186,23 @@ class SolarEdgeInventoryDataService(SolarEdgeDataService):
 class SolarEdgeEnergyDetailsService(SolarEdgeDataService):
     """Get and update the latest power flow data."""
 
-    def __init__(self, hass: HomeAssistant, api: Solaredge, site_id: str,
-            daily_update_limit: int,
-            daylight_update_limit_percentage: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: Solaredge,
+        site_id: str,
+        daily_update_limit: int,
+        daylight_update_limit_percentage: float | None = None,
+    ) -> None:
         """Initialize the power flow data service."""
-        super().__init__(hass, api, site_id, daily_update_limit, daylight_update_limit_percentage)
+        super().__init__(
+            hass, api, site_id, daily_update_limit, daylight_update_limit_percentage
+        )
 
         self.unit = None
 
     def update(self) -> None:
         """Update the data from the SolarEdge Monitoring API."""
-        LOGGER.warning("EnergyDetails update")
-
-        self.data = {}
-        self.attributes = {}
-        self.unit = "kW"
-        return
         try:
             now = datetime.now()
             today = date.today()
@@ -243,29 +251,28 @@ class SolarEdgeEnergyDetailsService(SolarEdgeDataService):
 class SolarEdgePowerFlowDataService(SolarEdgeDataService):
     """Get and update the latest power flow data."""
 
-    def __init__(self, hass: HomeAssistant, api: Solaredge, site_id: str,
-            daily_update_limit: int,
-            daylight_update_limit_percentage: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: Solaredge,
+        site_id: str,
+        daily_update_limit: int,
+        daylight_update_limit_percentage: float | None = None,
+    ) -> None:
         """Initialize the power flow data service."""
-        super().__init__(hass, api, site_id, daily_update_limit, daylight_update_limit_percentage)
+        super().__init__(
+            hass, api, site_id, daily_update_limit, daylight_update_limit_percentage
+        )
 
         self.unit = None
 
     def update(self) -> None:
         """Update the data from the SolarEdge Monitoring API."""
-        LOGGER.warning("Powerflow update")
-
-        self.data = {}
-        self.attributes = {}
-        self.unit = "kW"
-        return
-
         try:
             data = self.api.get_current_power_flow(self.site_id)
             power_flow = data["siteCurrentPowerFlow"]
         except KeyError as ex:
             raise UpdateFailed("Missing power flow data, skipping update") from ex
-
 
         power_from = []
         power_to = []
