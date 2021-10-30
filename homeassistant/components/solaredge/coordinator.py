@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import date, datetime, timedelta
-from unittest.mock import MagicMock
 
 from solaredge import Solaredge
 from stringcase import snakecase
@@ -26,7 +25,7 @@ class SolarEdgeDataService:
         daylight_update_limit_ratio: float | None = None,
     ) -> None:
         """Initialize the data object."""
-        self.api = MagicMock(return_value={})
+        self.api = api
         self.site_id = site_id
 
         self.data = {}
