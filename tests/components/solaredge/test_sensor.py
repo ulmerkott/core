@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from homeassistant.components.solaredge.const import (
+    CONF_DYNAMIC_UPDATE_INTERVAL,
     CONF_SITE_ID,
     DATA_API_CLIENT,
     DEFAULT_NAME,
@@ -30,10 +31,36 @@ DAY_DURATION = timedelta(days=1)
 @patch(
     "homeassistant.components.solaredge.coordinator.SolarEdgeDataService.recalculate_update_interval"
 )
+@patch("homeassistant.components.solaredge.sensor.utcnow")
+async def test_async_setup_entry(utcnow, recalc, hass: HomeAssistant) -> None:
+    """Test that async_setup_entry is initializing coordinator services correctly."""
+    config_entry = MockConfigEntry(
+        domain="solaredge",
+        data={
+            CONF_NAME: DEFAULT_NAME,
+            CONF_SITE_ID: SITE_ID,
+            CONF_API_KEY: API_KEY,
+            CONF_DYNAMIC_UPDATE_INTERVAL: False,
+        },
+    )
+    config_entry.add_to_hass(hass)
+    hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = {
+        DATA_API_CLIENT: MagicMock()
+    }
+
+    # recalculate_update_interval should not be called when CONF_DYNAMIC_UPDATE_INTERVAL is False
+    utcnow.return_value = datetime(2021, 10, 30, 12, 10, tzinfo=dt_util.UTC)
+    await sensor.async_setup_entry(hass, config_entry, MagicMock())
+    recalc.assert_not_called()
+
+
+@patch(
+    "homeassistant.components.solaredge.coordinator.SolarEdgeDataService.recalculate_update_interval"
+)
 @patch("homeassistant.components.solaredge.sensor.async_track_sunrise")
 @patch("homeassistant.components.solaredge.sensor.async_track_sunset")
 @patch("homeassistant.components.solaredge.sensor.utcnow")
-async def test_async_setup_entry(
+async def test_async_setup_entry_dynamic_update_interval(
     utcnow, sunset, sunrise, recalc, hass: HomeAssistant
 ) -> None:
     """Test that async_setup_entry is initializing coordinator services correctly."""
@@ -44,7 +71,12 @@ async def test_async_setup_entry(
 
     config_entry = MockConfigEntry(
         domain="solaredge",
-        data={CONF_NAME: DEFAULT_NAME, CONF_SITE_ID: SITE_ID, CONF_API_KEY: API_KEY},
+        data={
+            CONF_NAME: DEFAULT_NAME,
+            CONF_SITE_ID: SITE_ID,
+            CONF_API_KEY: API_KEY,
+            CONF_DYNAMIC_UPDATE_INTERVAL: True,
+        },
     )
     config_entry.add_to_hass(hass)
     hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = {
