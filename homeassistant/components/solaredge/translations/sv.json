@@ -5,7 +5,8 @@
                 "data": {
                     "api_key": "API-nyckeln f\u00f6r den h\u00e4r webbplatsen",
                     "name": "Namnet p\u00e5 den h\u00e4r installationen",
-                    "site_id": "SolarEdge webbplats-id"
+                    "site_id": "SolarEdge webbplats-id",
+                    "dynamic_update_interval": "Uppdatera oftare vid dagsljus. Anv\u00e4nder begr\u00e4nsningen på 300 API-anrop per dygn på ett b\u00e4ttre s\u00e4tt. Notera att uppdateringar blir v\u00e4sentligt f\u00e4rre nattetid."
                 },
                 "title": "Definiera API-parametrarna f\u00f6r den h\u00e4r installationen"
             }

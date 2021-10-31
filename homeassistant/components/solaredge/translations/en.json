@@ -14,7 +14,8 @@
                 "data": {
                     "api_key": "API Key",
                     "name": "The name of this installation",
-                    "site_id": "The SolarEdge site-id"
+                    "site_id": "The SolarEdge site-id",
+                    "dynamic_update_interval": "Update more often during daylight. Makes better use of the daily limit of 300 API requests. Note that updates will be much less frequent after sunset."
                 },
                 "title": "Define the API parameters for this installation"
             }

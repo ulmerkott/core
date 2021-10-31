@@ -22,6 +22,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.dt import utcnow
 
 from .const import (
+    CONF_DYNAMIC_UPDATE_INTERVAL,
     CONF_SITE_ID,
     DATA_API_CLIENT,
     DETAILS_DAILY_UPDATE_LIMIT,
@@ -54,7 +55,11 @@ async def async_setup_entry(
     api: Solaredge = hass.data[DOMAIN][entry.entry_id][DATA_API_CLIENT]
 
     sensor_factory = SolarEdgeSensorFactory(
-        hass, entry.title, entry.data[CONF_SITE_ID], api
+        hass,
+        entry.title,
+        entry.data[CONF_SITE_ID],
+        api,
+        entry.data[CONF_DYNAMIC_UPDATE_INTERVAL],
     )
 
     # Set initial update interval based on current daylight condition.
@@ -65,7 +70,10 @@ async def async_setup_entry(
     )
     for service in sensor_factory.all_services:
         service.async_setup()
-        service.recalculate_update_interval(astral_event_duration, daylight=daylight)
+        if entry.data[CONF_DYNAMIC_UPDATE_INTERVAL]:
+            service.recalculate_update_interval(
+                astral_event_duration, daylight=daylight
+            )
         await service.coordinator.async_refresh()
 
     entities = []
@@ -80,7 +88,12 @@ class SolarEdgeSensorFactory:
     """Factory which creates sensors based on the sensor_key."""
 
     def __init__(
-        self, hass: HomeAssistant, platform_name: str, site_id: str, api: Solaredge
+        self,
+        hass: HomeAssistant,
+        platform_name: str,
+        site_id: str,
+        api: Solaredge,
+        use_dynamic_update_interval: bool,
     ) -> None:
         """Initialize the factory."""
         self.platform_name = platform_name
@@ -111,8 +124,9 @@ class SolarEdgeSensorFactory:
 
         self.hass = hass
         self.all_services = (details, overview, inventory, flow, energy)
-        async_track_sunrise(hass, self.sunrise_callback)
-        async_track_sunset(hass, self.sunset_callback)
+        if use_dynamic_update_interval:
+            async_track_sunrise(hass, self.sunrise_callback)
+            async_track_sunset(hass, self.sunset_callback)
 
         self.services: dict[
             str,

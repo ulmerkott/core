@@ -1,5 +1,4 @@
 """Constants for the SolarEdge Monitoring API."""
-from datetime import timedelta
 import logging
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
@@ -17,7 +16,10 @@ DATA_API_CLIENT = "api_client"
 CONF_SITE_ID = "site_id"
 DEFAULT_NAME = "SolarEdge"
 
-# Actual limit is 300, but give it some margin for reboots and details/inventory 12h updates 
+# Config for dynamic update interval
+CONF_DYNAMIC_UPDATE_INTERVAL = "dynamic_update_interval"
+
+# Actual limit is 300, but give it some margin for reboots and details/inventory 12h updates
 API_DAILY_REQUEST_LIMIT = 288
 
 # This is for the 3 api requests that we update most frequently. Distribute the daily limit evenly over these for now.

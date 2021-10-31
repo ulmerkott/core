@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.util import slugify
 
-from .const import CONF_SITE_ID, DEFAULT_NAME, DOMAIN
+from .const import CONF_DYNAMIC_UPDATE_INTERVAL, CONF_SITE_ID, DEFAULT_NAME, DOMAIN
 
 
 @callback
@@ -66,16 +66,27 @@ class SolarEdgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 site = user_input[CONF_SITE_ID]
                 api = user_input[CONF_API_KEY]
+                dynamic_update_interval = user_input[CONF_DYNAMIC_UPDATE_INTERVAL]
                 can_connect = await self.hass.async_add_executor_job(
                     self._check_site, site, api
                 )
                 if can_connect:
                     return self.async_create_entry(
-                        title=name, data={CONF_SITE_ID: site, CONF_API_KEY: api}
+                        title=name,
+                        data={
+                            CONF_SITE_ID: site,
+                            CONF_API_KEY: api,
+                            CONF_DYNAMIC_UPDATE_INTERVAL: dynamic_update_interval,
+                        },
                     )
 
         else:
-            user_input = {CONF_NAME: DEFAULT_NAME, CONF_SITE_ID: "", CONF_API_KEY: ""}
+            user_input = {
+                CONF_NAME: DEFAULT_NAME,
+                CONF_SITE_ID: "",
+                CONF_API_KEY: "",
+                CONF_DYNAMIC_UPDATE_INTERVAL: False,
+            }
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -85,6 +96,7 @@ class SolarEdgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ): str,
                     vol.Required(CONF_SITE_ID, default=user_input[CONF_SITE_ID]): str,
                     vol.Required(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
+                    vol.Optional(CONF_DYNAMIC_UPDATE_INTERVAL, default=False): bool,
                 }
             ),
             errors=self._errors,
