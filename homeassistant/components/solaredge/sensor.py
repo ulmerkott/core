@@ -17,7 +17,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_sunrise, async_track_sunset
-from homeassistant.helpers.sun import get_astral_event_next, is_up
+from homeassistant.helpers.sun import get_astral_event_date, is_up
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.dt import utcnow
 
@@ -58,14 +58,14 @@ async def async_setup_entry(
     )
 
     # Set initial update interval based on current daylight condition.
-    # TODO: Get current day event duration instead of utcnow->next_event
-    daylight = is_up(hass, utcnow())
-    duration = await sensor_factory.get_event_duration(
-        SUN_EVENT_SUNSET if daylight else SUN_EVENT_SUNRISE
+    current_time = utcnow()
+    daylight = is_up(hass, current_time)
+    astral_event_duration = sensor_factory.get_current_event_duration(
+        daylight, current_time
     )
     for service in sensor_factory.all_services:
         service.async_setup()
-        await service.recalculate_update_interval(duration, daylight)
+        service.recalculate_update_interval(astral_event_duration, daylight=daylight)
         await service.coordinator.async_refresh()
 
     entities = []
@@ -111,7 +111,6 @@ class SolarEdgeSensorFactory:
 
         self.hass = hass
         self.all_services = (details, overview, inventory, flow, energy)
-
         async_track_sunrise(hass, self.sunrise_callback)
         async_track_sunset(hass, self.sunset_callback)
 
@@ -158,26 +157,58 @@ class SolarEdgeSensorFactory:
 
         return sensor_class(self.platform_name, sensor_type, service)
 
-    async def get_event_duration(self, event) -> timedelta:
-        """Get duration for the next astral event."""
-        return get_astral_event_next(self.hass, event) - utcnow()
+    def get_current_event_duration(
+        self, daylight: bool, current_time=utcnow()
+    ) -> timedelta:
+        """Get duration for the previous astral event until the next."""
+
+        current_day_sunrise = get_astral_event_date(
+            self.hass, SUN_EVENT_SUNRISE, date=current_time
+        )
+        current_day_sunset = get_astral_event_date(
+            self.hass, SUN_EVENT_SUNSET, date=current_time
+        )
+
+        # Return whole day as duration if one or no events this day
+        if not current_day_sunrise or not current_day_sunset:
+            return timedelta(days=1)
+
+        # Check if next/previous event occurs this day or not
+        if daylight:
+            next_event = current_day_sunset
+            previous_event = current_day_sunrise
+        elif current_time < current_day_sunrise:
+            next_event = current_day_sunrise
+            previous_event = get_astral_event_date(
+                self.hass, SUN_EVENT_SUNSET, date=current_time - timedelta(days=1)
+            )
+        else:  # current_time > current_day_sunset
+            previous_event = current_day_sunset
+            next_event = get_astral_event_date(
+                self.hass, SUN_EVENT_SUNRISE, date=current_time + timedelta(days=1)
+            )
+        # Return whole day as duration if one or no events previous/next day
+        if not next_event or not previous_event:
+            return timedelta(days=1)
+
+        return next_event - previous_event
 
     @callback
     async def sunset_callback(self):
         """Call for sunset astral event."""
-        duration = await self.get_event_duration(SUN_EVENT_SUNSET)
+        duration = self.get_current_event_duration(daylight=False)
         await self.recalculate_update_intervals(duration, daylight=False)
 
     @callback
     async def sunrise_callback(self):
         """Call for sunrise astral event."""
-        duration = await self.get_event_duration(SUN_EVENT_SUNRISE)
+        duration = self.get_current_event_duration(daylight=True)
         await self.recalculate_update_intervals(duration, daylight=True)
 
     async def recalculate_update_intervals(self, duration: timedelta, daylight: bool):
         """Go through all services and refresh the update_interval based on current conditions."""
         for service in self.all_services:
-            await service.recalculate_update_interval(duration, daylight)
+            service.recalculate_update_interval(duration, daylight)
             await service.coordinator.async_refresh()
 
 

@@ -29,7 +29,7 @@ async def test_data_service(hass: HomeAssistant) -> None:
     assert data_service.coordinator.update_interval == (DAY_DURATION / DAILY_LIMIT)
 
     # Calculate update interval based on daylight
-    await data_service.recalculate_update_interval(DAYLIGHT_DURATION, daylight=True)
+    data_service.recalculate_update_interval(DAYLIGHT_DURATION, daylight=True)
     assert (
         data_service.coordinator.update_interval == DAYLIGHT_DURATION / DAYLIGHT_LIMIT
     )
@@ -41,7 +41,7 @@ async def test_data_service(hass: HomeAssistant) -> None:
     assert daylight_update_count <= DAYLIGHT_LIMIT
 
     # Calculate update interval based on dark period
-    await data_service.recalculate_update_interval(DARK_DURATION, daylight=False)
+    data_service.recalculate_update_interval(DARK_DURATION, daylight=False)
     assert data_service.coordinator.update_interval == DARK_DURATION / DARK_LIMIT
 
     # Check that we are within the dark limit budget
@@ -71,7 +71,7 @@ async def test_data_service_no_sun_set_or_rise(
     assert data_service.coordinator.update_interval == (DAY_DURATION / DAILY_LIMIT)
 
     # Calculate update interval based all day or zero length daylight. Should ignore the RATIO and use DAILY_LIMIT.
-    await data_service.recalculate_update_interval(DAYLIGHT_DURATION, daylight=True)
+    data_service.recalculate_update_interval(DAYLIGHT_DURATION, daylight=True)
     assert data_service.coordinator.update_interval == DAY_DURATION / DAILY_LIMIT
 
     # Check that we are within the daily limit budget
@@ -81,8 +81,8 @@ async def test_data_service_no_sun_set_or_rise(
     )
 
     # Calculate update interval based all day or zero length dark period. Should ignore the RATIO and use DAILY_LIMIT.
-    await data_service.recalculate_update_interval(DARK_DURATION, daylight=False)
-    assert data_service.coordinator.update_interval == DAY_DURATION / DAILY_LIMIT
+    data_service.recalculate_update_interval(DARK_DURATION, daylight=False)
+    data_service.coordinator.update_interval == DAY_DURATION / DAILY_LIMIT
 
     # Check that we are within the dark limit budget
     assert (

@@ -55,9 +55,7 @@ class SolarEdgeDataService:
     def update(self) -> None:
         """Update data in executor."""
 
-    async def recalculate_update_interval(
-        self, duration: timedelta, daylight: bool
-    ) -> None:
+    def recalculate_update_interval(self, duration: timedelta, daylight: bool) -> None:
         """Recalculate update_interval based on available daylight."""
 
         # Only alter update_interval for services that uses daylight_update_limit_percentage
