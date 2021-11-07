@@ -184,7 +184,7 @@ class SolarEdgeInventoryDataService(SolarEdgeDataService):
 
 
 class SolarEdgeEnergyDetailsService(SolarEdgeDataService):
-    """Get and update the latest power flow data."""
+    """Get and update the latest energy details data."""
 
     def __init__(
         self,
@@ -194,7 +194,7 @@ class SolarEdgeEnergyDetailsService(SolarEdgeDataService):
         daily_update_limit: int,
         daylight_update_limit_percentage: float | None = None,
     ) -> None:
-        """Initialize the power flow data service."""
+        """Initialize the energy details data service."""
         super().__init__(
             hass, api, site_id, daily_update_limit, daylight_update_limit_percentage
         )
@@ -216,7 +216,7 @@ class SolarEdgeEnergyDetailsService(SolarEdgeDataService):
             )
             energy_details = data["energyDetails"]
         except KeyError as ex:
-            raise UpdateFailed("Missing power flow data, skipping update") from ex
+            raise UpdateFailed("Missing energy details data, skipping update") from ex
 
         if "meters" not in energy_details:
             LOGGER.debug(
