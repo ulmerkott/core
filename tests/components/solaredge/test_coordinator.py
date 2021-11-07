@@ -4,14 +4,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from homeassistant.components.solaredge.const import LIMIT_WHILE_DAYLIGHT_RATIO
 from homeassistant.components.solaredge.coordinator import SolarEdgeDataService
 from homeassistant.core import HomeAssistant
 
 SITE_ID = "1a2b3c4d5e6f7g8h"
-DAYLIGHT_LIMIT_RATIO = 0.9
 DAILY_LIMIT = 100
-DAYLIGHT_LIMIT = 90
-DARK_LIMIT = 10
+DAYLIGHT_LIMIT = int(DAILY_LIMIT * LIMIT_WHILE_DAYLIGHT_RATIO)
+DARK_LIMIT = DAILY_LIMIT - DAYLIGHT_LIMIT
 DAY_DURATION = timedelta(days=1)
 
 
@@ -21,9 +21,7 @@ async def test_data_service(hass: HomeAssistant) -> None:
     DAYLIGHT_DURATION = timedelta(minutes=500)
     DARK_DURATION = timedelta(minutes=940)
 
-    data_service = SolarEdgeDataService(
-        hass, Mock(), SITE_ID, DAILY_LIMIT, DAYLIGHT_LIMIT_RATIO
-    )
+    data_service = SolarEdgeDataService(hass, Mock(), SITE_ID, DAILY_LIMIT, True)
     data_service.async_setup()
     # Default interval should be distributed over the whole day
     assert data_service.coordinator.update_interval == (DAY_DURATION / DAILY_LIMIT)
@@ -63,9 +61,7 @@ async def test_data_service_no_sun_set_or_rise(
     hass: HomeAssistant, DAYLIGHT_DURATION, DARK_DURATION
 ) -> None:
     """Test data service when sun doesn't set or rise. In this case RATIO should be ignored."""
-    data_service = SolarEdgeDataService(
-        hass, Mock(), SITE_ID, DAILY_LIMIT, DAYLIGHT_LIMIT_RATIO
-    )
+    data_service = SolarEdgeDataService(hass, Mock(), SITE_ID, DAILY_LIMIT, True)
     data_service.async_setup()
     # Default interval should be distributed over the whole day
     assert data_service.coordinator.update_interval == (DAY_DURATION / DAILY_LIMIT)

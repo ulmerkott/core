@@ -22,10 +22,6 @@ CONF_DYNAMIC_UPDATE_INTERVAL = "dynamic_update_interval"
 # Actual limit is 300, but give it some margin for reboots and details/inventory 12h updates
 API_DAILY_REQUEST_LIMIT = 288
 
-# This is for the 3 api requests that we update most frequently. Distribute the daily limit evenly over these for now.
-OVERVIEW_DAILY_UPDATE_LIMIT = API_DAILY_REQUEST_LIMIT / 3
-POWER_FLOW_DAILY_UPDATE_LIMIT = API_DAILY_REQUEST_LIMIT / 3
-ENERGY_DETAILS_DAILY_UPDATE_LIMIT = API_DAILY_REQUEST_LIMIT / 3
 DETAILS_DAILY_UPDATE_LIMIT = 2
 INVENTORY_DAILY_UPDATE_LIMIT = 2
 

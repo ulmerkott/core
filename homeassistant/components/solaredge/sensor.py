@@ -27,11 +27,8 @@ from .const import (
     DATA_API_CLIENT,
     DETAILS_DAILY_UPDATE_LIMIT,
     DOMAIN,
-    ENERGY_DETAILS_DAILY_UPDATE_LIMIT,
     INVENTORY_DAILY_UPDATE_LIMIT,
-    LIMIT_WHILE_DAYLIGHT_RATIO,
-    OVERVIEW_DAILY_UPDATE_LIMIT,
-    POWER_FLOW_DAILY_UPDATE_LIMIT,
+    LOGGER,
     SENSOR_TYPES,
 )
 from .coordinator import (
@@ -62,20 +59,6 @@ async def async_setup_entry(
         entry.data[CONF_DYNAMIC_UPDATE_INTERVAL],
     )
 
-    # Set initial update interval based on current daylight condition.
-    current_time = utcnow()
-    daylight = is_up(hass, current_time)
-    astral_event_duration = sensor_factory.get_current_event_duration(
-        daylight, current_time
-    )
-    for service in sensor_factory.all_services:
-        service.async_setup()
-        if entry.data[CONF_DYNAMIC_UPDATE_INTERVAL]:
-            service.recalculate_update_interval(
-                astral_event_duration, daylight=daylight
-            )
-        await service.coordinator.async_refresh()
-
     entities = []
     for sensor_type in SENSOR_TYPES:
         sensor = sensor_factory.create_sensor(sensor_type)
@@ -96,37 +79,63 @@ class SolarEdgeSensorFactory:
         use_dynamic_update_interval: bool,
     ) -> None:
         """Initialize the factory."""
+        self.hass = hass
         self.platform_name = platform_name
+
+        self.all_services = []
+
+        inventory = SolarEdgeInventoryDataService(
+            hass, api, site_id, INVENTORY_DAILY_UPDATE_LIMIT
+        )
+        self.all_services.append(inventory)
+
+        # Disable power flow and energy details data services for sites with no meters or batteries.
+        inventory.update()
+        use_flow_and_energy_details = inventory.data.get(
+            "meters", True
+        ) or inventory.data.get("batteries", True)
+
+        frequenty_updated_services_count = 3 if use_flow_and_energy_details else 1
+        frequenty_updated_service_limit = (
+            frequenty_updated_services_count / frequenty_updated_services_count
+        )
 
         details = SolarEdgeDetailsDataService(
             hass, api, site_id, DETAILS_DAILY_UPDATE_LIMIT
         )
+        self.all_services.append(details)
         overview = SolarEdgeOverviewDataService(
-            hass, api, site_id, OVERVIEW_DAILY_UPDATE_LIMIT, LIMIT_WHILE_DAYLIGHT_RATIO
-        )
-        inventory = SolarEdgeInventoryDataService(
-            hass, api, site_id, INVENTORY_DAILY_UPDATE_LIMIT
-        )
-        flow = SolarEdgePowerFlowDataService(
             hass,
             api,
             site_id,
-            POWER_FLOW_DAILY_UPDATE_LIMIT,
-            LIMIT_WHILE_DAYLIGHT_RATIO,
+            frequenty_updated_service_limit,
+            use_dynamic_update_interval,
         )
-        energy = SolarEdgeEnergyDetailsService(
-            hass,
-            api,
-            site_id,
-            ENERGY_DETAILS_DAILY_UPDATE_LIMIT,
-            LIMIT_WHILE_DAYLIGHT_RATIO,
-        )
+        self.all_services.append(overview)
 
-        self.hass = hass
-        self.all_services = (details, overview, inventory, flow, energy)
-        if use_dynamic_update_interval:
-            async_track_sunrise(hass, self.sunrise_callback)
-            async_track_sunset(hass, self.sunset_callback)
+        flow = None
+        energy = None
+        if use_flow_and_energy_details:
+            LOGGER.debug(
+                "Adding PowerFlowDataService and EnergyDetailsService since site has power meter and/or storage"
+            )
+            flow = SolarEdgePowerFlowDataService(
+                hass,
+                api,
+                site_id,
+                frequenty_updated_service_limit,
+                use_dynamic_update_interval,
+            )
+            self.all_services.append(flow)
+
+            energy = SolarEdgeEnergyDetailsService(
+                hass,
+                api,
+                site_id,
+                frequenty_updated_service_limit,
+                use_dynamic_update_interval,
+            )
+            self.all_services.append(energy)
 
         self.services: dict[
             str,
@@ -163,13 +172,38 @@ class SolarEdgeSensorFactory:
         ):
             self.services[key] = (SolarEdgeEnergyDetailsSensor, energy)
 
+        # Set initial update interval based on current daylight condition.
+        current_time = utcnow()
+        daylight = is_up(hass, current_time)
+        astral_event_duration = self.get_current_event_duration(daylight, current_time)
+
+        # Update inventory first to check which sensors should be created.
+
+        for service in self.all_services:
+            service.async_setup()
+            if use_dynamic_update_interval:
+                service.recalculate_update_interval(
+                    astral_event_duration, daylight=daylight
+                )
+            if service is inventory:
+                # Skip initial async_refresh for inventory since already updated
+                continue
+            hass.async_run_job(service.coordinator.async_refresh)
+
+        if use_dynamic_update_interval:
+            async_track_sunrise(hass, self.sunrise_callback)
+            async_track_sunset(hass, self.sunset_callback)
+
     def create_sensor(
         self, sensor_type: SolarEdgeSensorEntityDescription
     ) -> SolarEdgeSensorEntityDescription:
         """Create and return a sensor based on the sensor_key."""
         sensor_class, service = self.services[sensor_type.key]
 
-        return sensor_class(self.platform_name, sensor_type, service)
+        # Only add sensors that have active data services.
+        return (
+            sensor_class(self.platform_name, sensor_type, service) if service else None
+        )
 
     def get_current_event_duration(
         self, daylight: bool, current_time=utcnow()

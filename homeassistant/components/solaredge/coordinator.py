@@ -10,7 +10,7 @@ from stringcase import snakecase
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import LOGGER
+from .const import LIMIT_WHILE_DAYLIGHT_RATIO, LOGGER
 
 
 class SolarEdgeDataService:
@@ -22,7 +22,7 @@ class SolarEdgeDataService:
         api: Solaredge,
         site_id: str,
         daily_update_limit: int,
-        daylight_update_limit_ratio: float | None = None,
+        dynamic_daylight_update: bool | None = None,
     ) -> None:
         """Initialize the data object."""
         self.api = api
@@ -35,7 +35,7 @@ class SolarEdgeDataService:
         self.coordinator = None
 
         self.daily_update_limit = daily_update_limit
-        self.daylight_update_limit_ratio = daylight_update_limit_ratio
+        self.dynamic_daylight_update = dynamic_daylight_update
 
         # Set default update limit. This will be modified dynamically based on daylight for if self.daylight_update_limit_percentage is not None.
         self.current_update_interval = timedelta(days=1) / self.daily_update_limit
@@ -58,8 +58,8 @@ class SolarEdgeDataService:
     def recalculate_update_interval(self, duration: timedelta, daylight: bool) -> None:
         """Recalculate update_interval based on available daylight."""
 
-        # Only alter update_interval for services that uses daylight_update_limit_percentage
-        if not self.daylight_update_limit_ratio:
+        # Only alter update_interval for services that uses dynamic update interval
+        if not self.dynamic_daylight_update:
             return
 
         # If duration is zero or whole day, ignore the ratio and use daily limit instead.
@@ -68,12 +68,12 @@ class SolarEdgeDataService:
         else:
             if daylight:
                 update_limit = round(
-                    self.daylight_update_limit_ratio * self.daily_update_limit,
+                    LIMIT_WHILE_DAYLIGHT_RATIO * self.daily_update_limit,
                     ndigits=5,
                 )
             else:
                 update_limit = round(
-                    (1 - self.daylight_update_limit_ratio) * self.daily_update_limit,
+                    (1 - LIMIT_WHILE_DAYLIGHT_RATIO) * self.daily_update_limit,
                     ndigits=5,
                 )
             self.current_update_interval = duration / update_limit
@@ -122,11 +122,11 @@ class SolarEdgeDetailsDataService(SolarEdgeDataService):
         api: Solaredge,
         site_id: str,
         daily_update_limit: int,
-        daylight_update_limit_percentage: float | None = None,
+        dynamic_daylight_update: bool | None = None,
     ) -> None:
         """Initialize the details data service."""
         super().__init__(
-            hass, api, site_id, daily_update_limit, daylight_update_limit_percentage
+            hass, api, site_id, daily_update_limit, dynamic_daylight_update
         )
 
         self.data = None
@@ -192,11 +192,11 @@ class SolarEdgeEnergyDetailsService(SolarEdgeDataService):
         api: Solaredge,
         site_id: str,
         daily_update_limit: int,
-        daylight_update_limit_percentage: float | None = None,
+        dynamic_daylight_update: bool | None = None,
     ) -> None:
         """Initialize the energy details data service."""
         super().__init__(
-            hass, api, site_id, daily_update_limit, daylight_update_limit_percentage
+            hass, api, site_id, daily_update_limit, dynamic_daylight_update
         )
 
         self.unit = None
@@ -257,11 +257,11 @@ class SolarEdgePowerFlowDataService(SolarEdgeDataService):
         api: Solaredge,
         site_id: str,
         daily_update_limit: int,
-        daylight_update_limit_percentage: float | None = None,
+        dynamic_daylight_update: bool | None = None,
     ) -> None:
         """Initialize the power flow data service."""
         super().__init__(
-            hass, api, site_id, daily_update_limit, daylight_update_limit_percentage
+            hass, api, site_id, daily_update_limit, dynamic_daylight_update
         )
 
         self.unit = None
